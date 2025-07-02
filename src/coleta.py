@@ -1,13 +1,13 @@
 import flet as ft
 import requests
 
-API_BASE = "http://94550ac37bb5.sn.mynetname.net:58244"
+API_BASE = "http://94550ac37bb5.sn.mynetname.net:58244"  # Altere se a porta da sua API for diferente
 
 # Armazena o tema atual (persistente no app)
 app_theme = {"mode": ft.ThemeMode.LIGHT}
 
-def sugestao_rolos_view(page: ft.Page):
 
+def sugestao_rolos_view(page: ft.Page):
     pedido_input = ft.TextField(label="Número do Pedido", width=300)
     resultado_info = ft.Text()
     tabela = ft.Column(scroll=ft.ScrollMode.ALWAYS, expand=True)
@@ -64,7 +64,7 @@ def sugestao_rolos_view(page: ft.Page):
                         content=row,
                         padding=5,
                         border=ft.border.all(0.5, ft.Colors.with_opacity(0.1, ft.Colors.ON_SURFACE)),
-                        bgcolor=ft.Colors.with_opacity(0.03, ft.Colors.ON_SURFACE)
+                        bgcolor=ft.Colors.with_opacity(0.03, ft.Colors.ON_SURFACE),
                     )
                 )
 
@@ -77,15 +77,17 @@ def sugestao_rolos_view(page: ft.Page):
             painel_resultado.visible = False
             page.update()
 
-    def imprimir(e):
-        page.launch_url("javascript:window.print();")
+    def abrir_pdf(e):
+        pedido = (pedido_input.value or "").strip()
+        if pedido:
+            page.launch_url(f"{API_BASE}/pdf/sugestao-rolos/{pedido}")
 
     return ft.Column([
         ft.Text("📦 Sugestão de Rolos", size=24, weight=ft.FontWeight.BOLD),
         pedido_input,
         ft.Row([
             ft.ElevatedButton("🔍 Buscar", on_click=buscar),
-            ft.ElevatedButton("🖨️ Imprimir", on_click=imprimir),
+            ft.ElevatedButton("📄 PDF", on_click=abrir_pdf),
             ft.ElevatedButton("⬅ Voltar", on_click=lambda e: page.go("/")),
         ], alignment=ft.MainAxisAlignment.START),
         resultado_info,
@@ -95,7 +97,6 @@ def sugestao_rolos_view(page: ft.Page):
 
 
 def home_view(page: ft.Page):
-
     def toggle_theme(e):
         app_theme["mode"] = (
             ft.ThemeMode.DARK if page.theme_mode == ft.ThemeMode.LIGHT else ft.ThemeMode.LIGHT
