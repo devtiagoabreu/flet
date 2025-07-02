@@ -1,10 +1,13 @@
 import flet as ft
 import requests
 
-API_BASE = "http://94550ac37bb5.sn.mynetname.net:58244"  # Altere para o endereço da sua API
+API_BASE = "http://94550ac37bb5.sn.mynetname.net:58244"
 
-# ========== TELA: Sugestão de Rolos ==========
+# Armazena o tema atual (persistente no app)
+app_theme = {"mode": ft.ThemeMode.LIGHT}
+
 def sugestao_rolos_view(page: ft.Page):
+
     pedido_input = ft.TextField(label="Número do Pedido", width=300)
     resultado_info = ft.Text()
     tabela = ft.Column(scroll=ft.ScrollMode.ALWAYS, expand=True)
@@ -34,14 +37,21 @@ def sugestao_rolos_view(page: ft.Page):
                 return
 
             headers = list(dados[0].keys())
+            tabela.controls.clear()
+
             header_row = ft.Row(
                 [ft.Text(h, weight=ft.FontWeight.BOLD, size=12) for h in headers],
                 wrap=True,
                 alignment=ft.MainAxisAlignment.START,
             )
 
-            tabela.controls.clear()
-            tabela.controls.append(ft.Container(content=header_row, bgcolor=ft.Colors.GREY_200, padding=5))
+            tabela.controls.append(
+                ft.Container(
+                    content=header_row,
+                    bgcolor=ft.Colors.BLUE_GREY_100 if page.theme_mode == ft.ThemeMode.LIGHT else ft.Colors.BLUE_GREY_900,
+                    padding=5,
+                )
+            )
 
             for item in dados:
                 row = ft.Row(
@@ -49,7 +59,14 @@ def sugestao_rolos_view(page: ft.Page):
                     wrap=True,
                     alignment=ft.MainAxisAlignment.START,
                 )
-                tabela.controls.append(ft.Container(content=row, padding=5, border=ft.border.all(0.5, ft.Colors.GREY_300)))
+                tabela.controls.append(
+                    ft.Container(
+                        content=row,
+                        padding=5,
+                        border=ft.border.all(0.5, ft.Colors.with_opacity(0.1, ft.Colors.ON_SURFACE)),
+                        bgcolor=ft.Colors.with_opacity(0.03, ft.Colors.ON_SURFACE)
+                    )
+                )
 
             resultado_info.value = f"✅ {len(dados)} itens encontrados"
             painel_resultado.visible = True
@@ -77,20 +94,36 @@ def sugestao_rolos_view(page: ft.Page):
     ], spacing=12, expand=True)
 
 
-# ========== TELA: Tela Inicial ==========
 def home_view(page: ft.Page):
+
+    def toggle_theme(e):
+        app_theme["mode"] = (
+            ft.ThemeMode.DARK if page.theme_mode == ft.ThemeMode.LIGHT else ft.ThemeMode.LIGHT
+        )
+        page.theme_mode = app_theme["mode"]
+        page.update()
+
     return ft.Column([
         ft.Text("Oráculo Coleta", size=30, weight=ft.FontWeight.BOLD),
         ft.ElevatedButton("Sugestão de Rolos", on_click=lambda e: page.go("/sugestao")),
-        ft.ElevatedButton("Sair", on_click=lambda e: page.window_close())
+        ft.ElevatedButton("🌙 Alternar Tema", on_click=toggle_theme),
     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
 
 
-# ========== MAIN APP ==========
 def main(page: ft.Page):
     page.title = "Oráculo Coleta"
-    page.padding = 10
     page.scroll = ft.ScrollMode.ALWAYS
+    page.theme_mode = app_theme["mode"]
+
+    # Paleta personalizada para tema escuro
+    page.theme = ft.Theme(
+        color_scheme=ft.ColorScheme(
+            primary=ft.Colors.BLUE,
+            secondary=ft.Colors.CYAN,
+            on_surface=ft.Colors.WHITE,
+            background=ft.Colors.BLACK,
+        )
+    )
 
     def route_change(route):
         page.views.clear()
@@ -104,5 +137,4 @@ def main(page: ft.Page):
     page.go("/")
 
 
-# ========== EXECUTA ==========
-ft.app(target=main, view=ft.WEB_BROWSER)
+ft.app(target=main, view="web_browser")
