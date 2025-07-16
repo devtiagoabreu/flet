@@ -18,7 +18,7 @@ class AppConfig:
     MOBILE_BREAKPOINT = 500.0
     MIN_CARD_WIDTH = 200.0
     SERVER_HOST = "LOCALHOST"
-    SERVER_PORT = 57244
+    SERVER_PORT = 8500
     ASSETS_DIR = "assets"
     CARD_HEIGHT = 300.0  # Altura fixa para os cards
     ROLOS_HEIGHT = 120.0  # Altura aumentada para o campo Rolos

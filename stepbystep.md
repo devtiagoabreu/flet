@@ -54,3 +54,5 @@ pip freeze > requirements.txt
 cat requirements.txt  # Linux/Mac
 type requirements.txt  # Windows
 
+instalar
+pip install -r requirements.txt 
