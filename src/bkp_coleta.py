@@ -17,14 +17,12 @@ class AppConfig:
     DEFAULT_CARD_WIDTH = 260.0
     MOBILE_BREAKPOINT = 500.0
     MIN_CARD_WIDTH = 200.0
-    SERVER_HOST = "LOCALHOST"
+    SERVER_HOST = "0.0.0.0"
     SERVER_PORT = 8500
     ASSETS_DIR = "assets"
-    CARD_HEIGHT = 300.0  # Altura fixa para os cards
-    ROLOS_HEIGHT = 120.0  # Altura aumentada para o campo Rolos
 
 class ResponsiveCard(ft.Container):
-    """Componente de card responsivo com altura fixa e rolagem no campo Rolos"""
+    """Componente de card responsivo com tratamento robusto de erros"""
     
     def __init__(self, item_data: Dict, page: ft.Page):
         self.page = page
@@ -35,17 +33,16 @@ class ResponsiveCard(ft.Container):
             border_radius=10,
             content=self._build_content(),
             width=self._calculate_safe_width(),
-            height=AppConfig.CARD_HEIGHT,  # Altura fixa para todos os cards
             on_hover=self._on_card_hover
         )
 
     def _calculate_safe_width(self) -> float:
         """Calcula largura com tratamento completo de erros"""
         try:
-            if not hasattr(self, 'page') or not hasattr(self.page, 'window'):
+            if not hasattr(self, 'page') or not hasattr(self.page, 'width'):
                 return AppConfig.DEFAULT_CARD_WIDTH
                 
-            page_width = getattr(self.page.window, 'width', None)
+            page_width = getattr(self.page, 'width', None)
             if page_width is None:
                 return AppConfig.DEFAULT_CARD_WIDTH
                 
@@ -63,7 +60,7 @@ class ResponsiveCard(ft.Container):
             return AppConfig.DEFAULT_CARD_WIDTH
 
     def _build_content(self) -> ft.Column:
-        """Constrói conteúdo do card com rolagem no campo Rolos"""
+        """Constrói conteúdo do card de forma segura"""
         try:
             fields = [
                 ("Produto", self._get_data('Produto')),
@@ -74,35 +71,16 @@ class ResponsiveCard(ft.Container):
                 ("Gavetas", self._get_data('Gavetas')),
                 ("Qtde Peças", self._get_data('Qtde_Pecas')),
                 ("Total Metros", self._get_data('Total_Metros')),
+                ("Rolos", f"{self._get_data('Rolos')}")
             ]
-            
-            # Campo Rolos com rolagem interna usando ListView
-            rolos_content = self._get_data('Rolos')
-            rolos_container = ft.ListView(
-                controls=[ft.Text(rolos_content, selectable=True)],
-                height=AppConfig.ROLOS_HEIGHT,  # Altura aumentada para melhor interação
-                auto_scroll=True,  # Melhora rolagem em dispositivos móveis
-                padding=5,
-                expand=False  # Evita expansão desnecessária
-            )
             
             return ft.Column(
                 controls=[
                     ft.Text(f"{label}: {value}", 
-                           weight=ft.FontWeight.BOLD if idx == 0 else None)
+                          weight=ft.FontWeight.BOLD if idx == 0 else None)
                     for idx, (label, value) in enumerate(fields)
-                ] + [
-                    ft.Text("Rolos:", weight=ft.FontWeight.BOLD),
-                    ft.Container(
-                        content=rolos_container,
-                        padding=5,
-                        border=ft.border.all(1, ft.Colors.GREY_300),
-                        border_radius=5
-                    )
                 ],
-                spacing=4,
-                expand=True,
-                scroll=ft.ScrollMode.HIDDEN  # Desativa rolagem no Column externo
+                spacing=4
             )
         except Exception as e:
             logger.error(f"Erro ao construir card: {str(e)}")
@@ -118,7 +96,7 @@ class ResponsiveCard(ft.Container):
         self.update()
 
 class SugestaoRolosView:
-    """View de sugestão de rolos com rolagem corrigida"""
+    """View de sugestão de rolos com gerenciamento de estado"""
     
     def __init__(self, page: ft.Page):
         self.page = page
@@ -126,7 +104,7 @@ class SugestaoRolosView:
         self._setup_event_handlers()
 
     def _setup_ui(self):
-        """Configura componentes UI com rolagem adequada"""
+        """Configura componentes UI"""
         self.pedido_input = ft.TextField(
             label="Número do Pedido",
             width=300,
@@ -135,36 +113,16 @@ class SugestaoRolosView:
         )
         
         self.resultado_info = ft.Text()
-        
-        self.lista_resultados = ft.ListView(
-            expand=True,
-            spacing=10,
-            padding=10,
-            auto_scroll=False
-        )
-        
+        self.lista_resultados = ft.Column(expand=True, spacing=10)
         self.painel_resultado = ft.Container(
             content=self.lista_resultados,
-            visible=False,
-            expand=True,
-            border=ft.border.all(1, ft.Colors.GREY_300),
-            border_radius=10,
-            padding=10,
+            visible=False
         )
 
     def _setup_event_handlers(self):
         """Configura handlers de eventos"""
         self.buscar_handler = partial(self._buscar_pedido)
         self.pdf_handler = partial(self._abrir_pdf)
-        self.page.on_resize = self._on_resize
-
-    def _on_resize(self, e: ft.ControlEvent):
-        """Atualiza dimensões do painel ao redimensionar"""
-        try:
-            self.painel_resultado.height = self.page.window.height * 0.7 if self.page.window.height else 500
-            self.page.update()
-        except Exception as e:
-            logger.error(f"Erro ao redimensionar: {str(e)}")
 
     def _buscar_pedido(self, e: ft.ControlEvent):
         """Busca dados do pedido na API"""
@@ -191,25 +149,22 @@ class SugestaoRolosView:
             self._update_ui(f"❌ Erro inesperado: {str(e)}", False)
 
     def _exibir_resultados(self, dados: list):
-        """Exibe os resultados na UI com rolagem adequada"""
+        """Exibe os resultados na UI"""
         try:
             self.lista_resultados.controls.clear()
             
-            grid = ft.GridView(
-                expand=True,
-                runs_count=1 if self.page.window.width < AppConfig.MOBILE_BREAKPOINT else 3,  # Ajusta colunas em telas pequenas
-                max_extent=300,
-                child_aspect_ratio=0.8,
-                spacing=20,  # Espaço horizontal
-                run_spacing=20,  # Espaço vertical
-                padding=10
+            row_cartoes = ft.Row(
+                wrap=True,
+                spacing=12,
+                run_spacing=12,
+                alignment=ft.MainAxisAlignment.CENTER,
             )
 
             for item in dados:
                 if isinstance(item, dict):
-                    grid.controls.append(ResponsiveCard(item, self.page))
+                    row_cartoes.controls.append(ResponsiveCard(item, self.page))
 
-            self.lista_resultados.controls.append(grid)
+            self.lista_resultados.controls.append(row_cartoes)
             self._update_ui(f"✅ {len(dados)} itens encontrados", True)
             
         except Exception as e:
@@ -231,7 +186,7 @@ class SugestaoRolosView:
             logger.error(f"Erro ao abrir PDF: {str(e)}")
 
     def get_view(self) -> ft.Column:
-        """Retorna a view configurada com rolagem adequada"""
+        """Retorna a view configurada"""
         return ft.Column(
             controls=[
                 ft.Text("📦 Sugestão de Rolos", size=22, weight=ft.FontWeight.BOLD),
@@ -246,15 +201,10 @@ class SugestaoRolosView:
                 ),
                 self.resultado_info,
                 ft.Divider(),
-                ft.Container(
-                    content=self.painel_resultado,
-                    expand=True,
-                    height=self.page.window.height * 0.7 if self.page.window.height else 500
-                )
+                self.painel_resultado,
             ],
             spacing=12,
-            expand=True,
-            scroll=ft.ScrollMode.AUTO
+            expand=True
         )
 
 def main(page: ft.Page) -> None:
@@ -262,7 +212,7 @@ def main(page: ft.Page) -> None:
     try:
         # Configurações da página
         page.title = "Oráculo Coleta - Produção"
-        page.scroll = ft.ScrollMode.AUTO
+        page.scroll = ft.ScrollMode.ADAPTIVE
         page.padding = 20
         page.theme_mode = ft.ThemeMode.LIGHT
 
@@ -280,9 +230,6 @@ def main(page: ft.Page) -> None:
                 surface=ft.Colors.GREY_900,
             )
         )
-
-        # Log da plataforma para depuração
-        logger.info(f"Plataforma em execução: {page.platform}")
 
         def route_change(e: ft.RouteChangeEvent) -> None:
             """Gerencia navegação entre views"""
@@ -337,15 +284,12 @@ def home_view(page: ft.Page) -> ft.Column:
     )
 
 if __name__ == "__main__":
-    # Configuração para deploy em produção (modo web)
-    try:
-        ft.app(
-            target=main,
-            view=ft.WEB_BROWSER,  # Configurado para modo web
-            host=AppConfig.SERVER_HOST,
-            port=AppConfig.SERVER_PORT,
-            assets_dir=AppConfig.ASSETS_DIR
-        )
-    except Exception as ex:
-        logger.critical(f"Erro ao iniciar ft.app: {str(ex)}")
-        raise
+    # Configuração para deploy em produção
+    ft.app(
+        target=main,
+        view=None,  # Sem abrir navegador automaticamente
+        host=AppConfig.SERVER_HOST,
+        port=AppConfig.SERVER_PORT,
+        assets_dir=AppConfig.ASSETS_DIR,
+        # upload_dir=AppConfig.ASSETS_DIR,  # Descomente se precisar de uploads
+    )
